@@ -9,23 +9,36 @@ tflint = "0.64.0"
 terraform-docs = "0.24.0"
 
 [tasks.check]
-description = "fmt, validate, tflint and terraform test for each Terraform module in the current repository"
+description = "fmt, validate, tflint and terraform test for every Terraform directory in the current repository"
 dir = "{{cwd}}"
 run = '''
 set -euo pipefail
+ruleset="{{config_root}}/.github/.tflint.hcl"
 terraform fmt -check -recursive
-for module_dir in . modules/*/; do
-  if ! compgen -G "${module_dir%/}/*.tf" >/dev/null; then
-    continue
-  fi
+tflint --init --config="${ruleset}"
+module_dirs="$("{{config_root}}/.github/bin/terraform-dirs")"
+while IFS= read -r module_dir; do
   echo "== ${module_dir}"
   terraform -chdir="${module_dir}" init -backend=false -input=false >/dev/null
   terraform -chdir="${module_dir}" validate
-  tflint --chdir="${module_dir}" --config="{{config_root}}/.github/.tflint.hcl"
+  tflint --chdir="${module_dir}" --config="${ruleset}"
   if [ -d "${module_dir%/}/tests" ]; then
     terraform -chdir="${module_dir}" test
   else
     echo "no tests in ${module_dir}"
   fi
-done
+done <<< "${module_dirs}"
+'''
+
+[tasks.lock]
+description = "Re-resolve providers within their constraints and lock them for macOS (arm64) and Linux (amd64) in every Terraform directory"
+dir = "{{cwd}}"
+run = '''
+set -euo pipefail
+module_dirs="$("{{config_root}}/.github/bin/terraform-dirs")"
+while IFS= read -r module_dir; do
+  echo "== ${module_dir}"
+  terraform -chdir="${module_dir}" init -backend=false -upgrade -input=false >/dev/null
+  terraform -chdir="${module_dir}" providers lock -platform=darwin_arm64 -platform=linux_amd64 >/dev/null
+done <<< "${module_dirs}"
 '''

@@ -4,8 +4,10 @@ Shared tooling for the shortpoet-cloud Terraform module repositories: toolchain 
 
 | File | Purpose |
 | --- | --- |
-| `mise.toml` | Terraform, tflint and terraform-docs versions, and the `check` task: `terraform fmt`, `validate`, `tflint` and `terraform test` for the repository root and each `modules/*` directory |
-| `.tflint.hcl` | The tflint ruleset: the built-in terraform plugin with the `all` preset |
+| `mise.toml` | Terraform, tflint and terraform-docs versions, and the `check` task: `terraform fmt`, `validate`, `tflint` and `terraform test` for every directory with `.tf` files |
+| `mise run lock` | Re-resolves providers within their constraints and writes `.terraform.lock.hcl` for macOS (arm64) and Linux (amd64) in every Terraform directory. Lock files are committed, so local runs and CI use the same providers |
+| `bin/terraform-dirs` | Lists the directories with `.tf` files; both tasks iterate over it |
+| `.tflint.hcl` | The tflint ruleset: the built-in terraform plugin with the `all` preset, and the AWS plugin |
 | `actions/terraform-module-check` | The same check for CI |
 
 ## Local layout
