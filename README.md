@@ -47,3 +47,11 @@ jobs:
 ```
 
 The action recreates the local layout around the checkout, so the toolchain and ruleset come from the action's own tag. It fetches `git@github.com:` and `ssh://git@github.com/` module sources over HTTPS. `module-source-token` is needed only when a module source is a private repository.
+
+### Module source tokens
+
+| Repository secret | Grants | Source |
+| --- | --- | --- |
+| `tf-aws-s3`: `SHORTPOET_CLOUD_MODULE_READ_TOKEN` | Fine-grained PAT, contents read-only on `tf-iam` (sourced by `modules/backup_bucket`) | `pass Github/shortpoet-cloud/pat/tf-aws-s3-access-tf-iam` |
+
+To rotate: replace the entry in `pass`, then `pass Github/shortpoet-cloud/pat/tf-aws-s3-access-tf-iam | gh secret set SHORTPOET_CLOUD_MODULE_READ_TOKEN -R shortpoet-cloud/tf-aws-s3`.
