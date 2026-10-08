@@ -1,0 +1,52 @@
+name: Terraform module check
+description: Run fmt, validate, tflint and terraform test with the toolchain and ruleset at this action's ref.
+inputs:
+  module-source-token:
+    description: Token with read access to the private shortpoet-cloud repositories used as git module sources. Leave empty when every module source is public.
+    required: false
+    default: ""
+runs:
+  using: composite
+  steps:
+    - name: Recreate the org checkout layout
+      shell: bash
+      run: |
+        set -euo pipefail
+        org_root="$(dirname "${GITHUB_WORKSPACE}")"
+        tooling_root="$(cd "${GITHUB_ACTION_PATH}/../.." && pwd)"
+        ln -sfn "${tooling_root}" "${org_root}/.github"
+        ln -sfn .github/mise.toml "${org_root}/mise.toml"
+        echo "ORG_MISE_CONFIG=${org_root}/mise.toml" >> "${GITHUB_ENV}"
+
+    - name: Fetch GitHub module sources over HTTPS
+      shell: bash
+      env:
+        MODULE_SOURCE_TOKEN: ${{ inputs.module-source-token }}
+      run: |
+        set -euo pipefail
+        https_base="https://github.com/"
+        if [ -n "${MODULE_SOURCE_TOKEN}" ]; then
+          https_base="https://x-access-token:${MODULE_SOURCE_TOKEN}@github.com/"
+        fi
+        git config --global url."${https_base}".insteadOf "ssh://git@github.com/"
+        git config --global --add url."${https_base}".insteadOf "git@github.com:"
+
+    - name: Install mise
+      uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+      with:
+        version: 2026.9.1
+        install: false
+        cache: false
+
+    - name: Install toolchain
+      shell: bash
+      working-directory: ${{ github.workspace }}
+      run: |
+        set -euo pipefail
+        mise trust "${ORG_MISE_CONFIG}"
+        mise install
+
+    - name: Check
+      shell: bash
+      working-directory: ${{ github.workspace }}
+      run: mise run check

@@ -1,0 +1,31 @@
+# Shared toolchain and checks for the shortpoet-cloud Terraform module repositories.
+# The org checkout root links its mise.toml here (see README.md). Mise reads
+# parent-directory config, so `mise run check` works from any module repository,
+# and {{config_root}} is that org root.
+
+[tools]
+terraform = "1.16.1"
+tflint = "0.64.0"
+terraform-docs = "0.24.0"
+
+[tasks.check]
+description = "fmt, validate, tflint and terraform test for each Terraform module in the current repository"
+dir = "{{cwd}}"
+run = '''
+set -euo pipefail
+terraform fmt -check -recursive
+for module_dir in . modules/*/; do
+  if ! compgen -G "${module_dir%/}/*.tf" >/dev/null; then
+    continue
+  fi
+  echo "== ${module_dir}"
+  terraform -chdir="${module_dir}" init -backend=false -input=false >/dev/null
+  terraform -chdir="${module_dir}" validate
+  tflint --chdir="${module_dir}" --config="{{config_root}}/.github/.tflint.hcl"
+  if [ -d "${module_dir%/}/tests" ]; then
+    terraform -chdir="${module_dir}" test
+  else
+    echo "no tests in ${module_dir}"
+  fi
+done
+'''
