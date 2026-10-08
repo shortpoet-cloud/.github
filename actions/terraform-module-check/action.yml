@@ -2,7 +2,7 @@ name: Terraform module check
 description: Run fmt, validate, tflint and terraform test with the toolchain and ruleset at this action's ref.
 inputs:
   module-source-token:
-    description: Token with read access to the private shortpoet-cloud repositories used as git module sources. Leave empty when every module source is public.
+    description: Token with read access to the private shortpoet-cloud repositories used as git module sources. It is used only for shortpoet-cloud sources, in the check step. Leave empty when every module source is public.
     required: false
     default: ""
 runs:
@@ -17,19 +17,6 @@ runs:
         ln -sfn "${tooling_root}" "${org_root}/.github"
         ln -sfn .github/mise.toml "${org_root}/mise.toml"
         echo "ORG_MISE_CONFIG=${org_root}/mise.toml" >> "${GITHUB_ENV}"
-
-    - name: Fetch GitHub module sources over HTTPS
-      shell: bash
-      env:
-        MODULE_SOURCE_TOKEN: ${{ inputs.module-source-token }}
-      run: |
-        set -euo pipefail
-        https_base="https://github.com/"
-        if [ -n "${MODULE_SOURCE_TOKEN}" ]; then
-          https_base="https://x-access-token:${MODULE_SOURCE_TOKEN}@github.com/"
-        fi
-        git config --global url."${https_base}".insteadOf "ssh://git@github.com/"
-        git config --global --add url."${https_base}".insteadOf "git@github.com:"
 
     - name: Install mise
       uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
@@ -46,10 +33,31 @@ runs:
         mise trust "${ORG_MISE_CONFIG}"
         mise install
 
+    - name: Install tflint plugins
+      shell: bash
+      working-directory: ${{ github.workspace }}
+      run: mise run tflint-init
+      env:
+        # Plugins download from GitHub releases; only this step gets the token.
+        GITHUB_TOKEN: ${{ github.token }}
+
     - name: Check
       shell: bash
       working-directory: ${{ github.workspace }}
-      run: mise run check
       env:
-        # tflint --init downloads ruleset plugins from GitHub releases.
-        GITHUB_TOKEN: ${{ github.token }}
+        MODULE_SOURCE_TOKEN: ${{ inputs.module-source-token }}
+      run: |
+        set -euo pipefail
+        # Fetch shortpoet-cloud module sources over HTTPS. The rewrite lives in
+        # this step's environment only, and other hosts and owners are untouched.
+        org_https_base="https://github.com/shortpoet-cloud/"
+        if [ -n "${MODULE_SOURCE_TOKEN}" ]; then
+          org_https_base="https://x-access-token:${MODULE_SOURCE_TOKEN}@github.com/shortpoet-cloud/"
+        fi
+        insteadof_key="url.${org_https_base}.insteadOf"
+        export GIT_CONFIG_COUNT=2
+        export GIT_CONFIG_KEY_0="${insteadof_key}"
+        export GIT_CONFIG_VALUE_0="ssh://git@github.com/shortpoet-cloud/"
+        export GIT_CONFIG_KEY_1="${insteadof_key}"
+        export GIT_CONFIG_VALUE_1="git@github.com:shortpoet-cloud/"
+        mise run check

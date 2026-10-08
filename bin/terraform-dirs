@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# terraform-dirs - print each directory under the current one that holds .tf files
+# terraform-dirs - print each directory under the current one that holds .tf or .tf.json files
 # Usage: terraform-dirs
 set -euo pipefail
 
-tf_files="$(find . -name "*.tf" -not -path "*/.terraform/*")"
+tf_files="$(find . \( -name "*.tf" -o -name "*.tf.json" \) -not -path "*/.terraform/*")"
 if [[ -z "${tf_files}" ]]; then
-  echo "terraform-dirs: no .tf files under ${PWD}" >&2
+  echo "terraform-dirs: no .tf or .tf.json files under ${PWD}" >&2
   exit 1
 fi
 

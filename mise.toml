@@ -8,23 +8,39 @@ terraform = "1.16.1"
 tflint = "0.64.0"
 terraform-docs = "0.24.0"
 
+[tasks.tflint-init]
+description = "Install the tflint ruleset plugins (downloads from GitHub releases; reads GITHUB_TOKEN when set)"
+dir = "{{cwd}}"
+# The task script uses bash (pipefail); Linux runners default to dash.
+shell = "bash -c"
+run = '''
+set -euo pipefail
+ruleset="{{config_root}}/.github/.tflint.hcl"
+if [ ! -f "${ruleset}" ]; then
+  echo "tflint-init: no ruleset at ${ruleset}; check out shortpoet-cloud/.github beside this repository and link mise.toml (see its README)" >&2
+  exit 1
+fi
+tflint --init --config="${ruleset}"
+'''
+
 [tasks.check]
 description = "fmt, validate, tflint and terraform test for every Terraform directory in the current repository"
 dir = "{{cwd}}"
-# The task script uses bash (pipefail, here-strings); Linux runners default to dash.
+depends = ["tflint-init"]
+# The task script uses bash (pipefail, here-strings, compgen); Linux runners default to dash.
 shell = "bash -c"
 run = '''
 set -euo pipefail
 ruleset="{{config_root}}/.github/.tflint.hcl"
 terraform fmt -check -recursive
-tflint --init --config="${ruleset}"
 module_dirs="$("{{config_root}}/.github/bin/terraform-dirs")"
 while IFS= read -r module_dir; do
   echo "== ${module_dir}"
   terraform -chdir="${module_dir}" init -backend=false -input=false >/dev/null
   terraform -chdir="${module_dir}" validate
   tflint --chdir="${module_dir}" --config="${ruleset}"
-  if [ -d "${module_dir%/}/tests" ]; then
+  # terraform test reads *.tftest.hcl from the module directory and from tests/.
+  if [ -d "${module_dir%/}/tests" ] || compgen -G "${module_dir%/}/*.tftest.hcl" >/dev/null; then
     terraform -chdir="${module_dir}" test
   else
     echo "no tests in ${module_dir}"

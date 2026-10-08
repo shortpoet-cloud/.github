@@ -4,7 +4,7 @@ Shared tooling for the shortpoet-cloud Terraform module repositories: toolchain 
 
 | File | Purpose |
 | --- | --- |
-| `mise.toml` | Terraform, tflint and terraform-docs versions, and the `check` task: `terraform fmt`, `validate`, `tflint` and `terraform test` for every directory with `.tf` files |
+| `mise.toml` | Terraform, tflint and terraform-docs versions, and the `check` task: `terraform fmt`, `validate`, `tflint` and `terraform test` for every directory with `.tf` or `.tf.json` files (tests run when a directory has `tests/` or a `*.tftest.hcl`) |
 | `mise run lock` | Re-resolves providers within their constraints and writes `.terraform.lock.hcl` for macOS (arm64) and Linux (amd64) in every Terraform directory. Lock files are committed, so local runs and CI use the same providers |
 | `bin/terraform-dirs` | Lists the directories with `.tf` files; both tasks iterate over it |
 | `.tflint.hcl` | The tflint ruleset: the built-in terraform plugin with the `all` preset, and the AWS plugin |
@@ -36,6 +36,9 @@ Mise reads parent-directory config, so `mise run check` works from any module re
 A module repository runs the check through the action, pinned to a tag of this repository:
 
 ```yaml
+permissions:
+  contents: read
+
 jobs:
   check:
     runs-on: ubuntu-latest
@@ -46,7 +49,7 @@ jobs:
           module-source-token: ${{ secrets.SHORTPOET_CLOUD_MODULE_READ_TOKEN }}
 ```
 
-The action recreates the local layout around the checkout, so the toolchain and ruleset come from the action's own tag. It fetches `git@github.com:` and `ssh://git@github.com/` module sources over HTTPS. `module-source-token` is needed only when a module source is a private repository.
+The action recreates the local layout around the checkout, so the toolchain and ruleset come from the action's own tag. It fetches `shortpoet-cloud` module sources (`git@github.com:shortpoet-cloud/` and `ssh://git@github.com/shortpoet-cloud/`) over HTTPS, through `GIT_CONFIG_*` set in the check step only. `module-source-token` is needed only when a module source is a private repository, and is used for no other owner or host. The job's `GITHUB_TOKEN` goes only to the `tflint --init` step.
 
 ### Module source tokens
 
