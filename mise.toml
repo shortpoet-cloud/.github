@@ -11,6 +11,8 @@ terraform-docs = "0.24.0"
 [tasks.check]
 description = "fmt, validate, tflint and terraform test for every Terraform directory in the current repository"
 dir = "{{cwd}}"
+# The task script uses bash (pipefail, here-strings); Linux runners default to dash.
+shell = "bash -c"
 run = '''
 set -euo pipefail
 ruleset="{{config_root}}/.github/.tflint.hcl"
@@ -33,6 +35,8 @@ done <<< "${module_dirs}"
 [tasks.lock]
 description = "Re-resolve providers within their constraints and lock them for macOS (arm64) and Linux (amd64) in every Terraform directory"
 dir = "{{cwd}}"
+# The task script uses bash (pipefail, here-strings); Linux runners default to dash.
+shell = "bash -c"
 run = '''
 set -euo pipefail
 module_dirs="$("{{config_root}}/.github/bin/terraform-dirs")"
